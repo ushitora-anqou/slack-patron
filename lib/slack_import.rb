@@ -33,9 +33,14 @@ class SlackImport
     begin
       Zip::File.open(exported_file) do |zip|
         zip.each do |entry|
-          entry.extract(dist + '/' + entry.to_s)
+          path = dist + '/' + entry.to_s
+          Pathname(path).dirname.mkpath
+          entry.extract(path)
         end
         open(dist + '/channels.json') do |io|
+          import_channels(JSON.load(io))
+        end
+        open(dist + '/groups.json') do |io|
           import_channels(JSON.load(io))
         end
         open(dist + '/users.json') do |io|
@@ -46,6 +51,10 @@ class SlackImport
           if !File.directory?(dist + '/' + entry.to_s) and entry.to_s.split('/').size > 1
             puts "import #{entry.to_s}"
             channel = Channels.find(name: entry.to_s.split('/')[0]).to_a[0]
+            if channel.nil?
+              puts "cannot find channel for #{entry.to_s}"
+              next
+            end
             messages = JSON.load(entry.get_input_stream)
             import_messages(channel, messages)
           end
